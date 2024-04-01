@@ -1,4 +1,6 @@
 from flask import Flask, jsonify, abort, request
+import urllib.parse
+
 app = Flask(__name__)
 
 @app.route('/')
@@ -29,22 +31,31 @@ def newRestaurant():
     restaurants.append(restaurant)
     return restaurants
 
-@app.route('/api/restaurants/', methods=["GET"])
-def returnRestaurants():
-    return restaurants
+@app.route('/api/restaurants', methods=["GET"])
+def getRestaurants():
+    cityName = request.args.get('cityName')
+    restaurantId = request.args.get('id')
+    
+    if cityName:
+        decoded_cityName = urllib.parse.unquote(cityName)
+        cityList = [restaurant for restaurant in restaurants if "address" in restaurant and "addressLocality" in restaurant["address"] and restaurant["address"]["addressLocality"] == decoded_cityName]
+        return jsonify(cityList)
+    elif restaurantId:
+        restaurant = next((restaurant for restaurant in restaurants if restaurant["id"] == int(restaurantId)), None)
+        if restaurant:
+            return jsonify(restaurant)
+        else:
+            return jsonify({"error": "Restaurant not found"}), 404
+    else:
+        return jsonify(restaurants)
 
 @app.route('/api/restaurants/<int:restaurantId>', methods=["GET"])
 def returnRestaurant(restaurantId):
-    return restaurants[restaurantId]
-
-@app.route('/api/restaurants/find-city/<string:cityName>', methods=["GET"])
-def findCity(cityName):
-    cityList = []
-    for restaurant in restaurants:
-        if "address" in restaurant and "addressRegion" in restaurant["address"]:
-            if restaurant["address"]["addressRegion"] == cityName:
-                cityList.append(restaurant)
-    return jsonify(cityList)
+    restaurant = next((restaurant for restaurant in restaurants if restaurant["id"] == restaurantId), None)
+    if restaurant:
+        return jsonify(restaurant)
+    else:
+        return jsonify({"error": "Restaurant not found"}), 404
 
 @app.route("/api/restaurants/<int:restaurantId>", methods=["PUT"])
 def updateRestaurant(restaurantId):
@@ -89,7 +100,6 @@ def updateRestaurant(restaurantId):
 def deleteRestaurant(restaurantId):
     del(restaurants[restaurantId])
     return restaurants
-
 
 if __name__ == '__main__':
  app.run(host="0.0.0.0", port=4999, debug=True)
